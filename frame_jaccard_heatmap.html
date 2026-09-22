@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Frame pairs by first-author gender</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fbfbfa; --surface:#ffffff; --ink:#1d2328; --muted:#5d666e; --rule:#dde1e4; --empty:#eef0f1;
+  --female:#b3472f; --male:#2a5673; --focus:#1d2328;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#15181b; --surface:#1c2024; --ink:#e7eaec; --muted:#9aa3aa; --rule:#30363b; --empty:#23282d;
+  --female:#e0765c; --male:#6fa3c7; --focus:#e7eaec; } }
+:root[data-theme="dark"]{ --bg:#15181b; --surface:#1c2024; --ink:#e7eaec; --muted:#9aa3aa; --rule:#30363b; --empty:#23282d;
+  --female:#e0765c; --male:#6fa3c7; --focus:#e7eaec; }
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1180px;margin:0 auto;padding:32px 24px 48px}
+h1{font:600 clamp(1.5rem,2.6vw,2.1rem)/1.2 "Source Serif 4",Georgia,serif;margin:0 0 8px;letter-spacing:-.01em}
+.lede{color:var(--muted);max-width:68ch;margin:0 0 24px}
+.controls{display:flex;flex-wrap:wrap;gap:20px 32px;margin-bottom:20px}
+.group{display:flex;flex-direction:column;gap:6px}
+.group span{font-size:.85rem;color:var(--muted)}
+.seg{display:inline-flex;border:1px solid var(--rule);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{font:inherit;font-size:.93rem;border:0;background:transparent;color:var(--ink);padding:7px 14px;cursor:pointer;border-right:1px solid var(--rule)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.seg button:focus-visible{outline:2px solid var(--focus);outline-offset:-3px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:28px;align-items:start}
+.chart{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:12px;overflow-x:auto}
+svg{display:block;max-width:100%;height:auto}
+svg text{fill:var(--ink);font-family:"Source Sans 3",system-ui,sans-serif}
+.cell{cursor:pointer}
+.cell:focus{outline:none}
+.side{display:flex;flex-direction:column;gap:20px}
+.panel{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:16px 18px}
+.panel h2{font:600 1.05rem/1.3 "Source Serif 4",Georgia,serif;margin:0 0 10px}
+.pair{font-weight:600;margin:0 0 6px}
+.stat{display:flex;justify-content:space-between;gap:12px;font-size:.93rem;padding:4px 0;border-top:1px solid var(--rule)}
+.stat b{font-weight:600;font-variant-numeric:tabular-nums}
+.hint{color:var(--muted);font-size:.9rem;margin:0}
+ol{margin:0;padding-left:1.2em}
+ol li{padding:3px 0;font-size:.93rem}
+ol li .v{color:var(--muted);font-variant-numeric:tabular-nums}
+.sub{font-size:.85rem;color:var(--muted);margin:10px 0 4px}
+.legend{display:flex;align-items:center;gap:10px;font-size:.85rem;color:var(--muted);margin-top:10px;flex-wrap:wrap}
+.bar{height:10px;width:180px;border-radius:3px;border:1px solid var(--rule)}
+.note{font-size:.85rem;color:var(--muted);margin-top:18px;max-width:80ch}
+@media (max-width:880px){.layout{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:no-preference){.cell{transition:opacity .15s}}
+</style>
+</head>
+<body>
+<main>
+<h1>Which frames appear together, by first-author gender</h1>
+<p class="lede">Each cell shows the Jaccard association between two of the 21 coded frames: the share of books containing either frame that contain both. Hover over or tap a cell for the book counts.</p>
+
+<div class="controls">
+  <div class="group"><span id="lp">Period</span>
+    <div class="seg" role="group" aria-labelledby="lp" id="period">
+      <button data-v="all" aria-pressed="true">All years</button>
+      <button data-v="2000" aria-pressed="false">2000s</button>
+      <button data-v="2010" aria-pressed="false">2010s</button>
+    </div></div>
+  <div class="group"><span id="lv">View</span>
+    <div class="seg" role="group" aria-labelledby="lv" id="view">
+      <button data-v="F" aria-pressed="true">Female first authors</button>
+      <button data-v="M" aria-pressed="false">Male first authors</button>
+      <button data-v="D" aria-pressed="false">Female minus male</button>
+    </div></div>
+</div>
+
+<div class="layout">
+  <div>
+    <div class="chart"><svg id="heat" role="img" aria-label="Frame co-occurrence heatmap"></svg></div>
+    <div class="legend" id="legend"></div>
+  </div>
+  <div class="side">
+    <div class="panel" aria-live="polite" id="detail"><h2>Selected pair</h2><p class="hint">Hover over or tap a cell.</p></div>
+    <div class="panel"><h2 id="toph">Strongest pairs</h2><div id="top"></div></div>
+  </div>
+</div>
+<p class="note">Frames are ordered by how often they appear across all 397 books. Frames 7 (organizational type) and 14 (system appraisal) count as any mention. Faded cells rest on fewer than three books with both frames. Book counts: all years 140 female and 257 male; 2000s 51 and 80; 2010s 73 and 144.</p>
+</main>
+<script>
+const D = {"labels": ["Poverty", "Sustainable development", "System appraisal", "(Dis)empowerment", "Commercialization", "Women", "Organizational type", "Public policy", "Ethics", "Affects", "Innovation", "Political aspirations", "Financial inclusion", "Debt", "Evaluation", "Self-help", "Power issues", "Religious microfinance", "Technology", "Interpersonal relationships", "Money management"], "data": {"allF": {"n": 140, "both": [[51, 16, 22, 19, 13, 16, 13, 4, 0, 5, 4, 7, 5, 4, 5, 5, 3, 0, 2, 5, 1], [16, 38, 12, 10, 13, 12, 12, 7, 6, 2, 1, 5, 6, 3, 1, 2, 3, 0, 0, 2, 1], [22, 12, 35, 13, 10, 13, 10, 4, 1, 4, 3, 4, 5, 5, 5, 5, 2, 0, 0, 4, 0], [19, 10, 13, 42, 8, 29, 8, 2, 5, 3, 1, 4, 5, 0, 2, 7, 6, 0, 1, 4, 0], [13, 13, 10, 8, 29, 8, 8, 4, 1, 5, 2, 3, 5, 4, 2, 1, 0, 0, 0, 0, 0], [16, 12, 13, 29, 8, 44, 7, 4, 4, 1, 0, 6, 3, 2, 3, 6, 5, 0, 0, 4, 0], [13, 12, 10, 8, 8, 7, 22, 3, 1, 0, 0, 4, 3, 2, 2, 2, 0, 0, 0, 1, 0], [4, 7, 4, 2, 4, 4, 3, 12, 1, 0, 2, 0, 6, 0, 0, 1, 0, 0, 0, 1, 0], [0, 6, 1, 5, 1, 4, 1, 1, 12, 1, 2, 0, 2, 0, 1, 0, 2, 0, 0, 0, 0], [5, 2, 4, 3, 5, 1, 0, 0, 1, 13, 3, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0], [4, 1, 3, 1, 2, 0, 0, 2, 2, 3, 9, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0], [7, 5, 4, 4, 3, 6, 4, 0, 0, 0, 0, 10, 1, 2, 0, 1, 0, 0, 0, 0, 0], [5, 6, 5, 5, 5, 3, 3, 6, 2, 0, 1, 1, 13, 0, 1, 1, 0, 0, 2, 0, 0], [4, 3, 5, 0, 4, 2, 2, 0, 0, 1, 0, 2, 0, 9, 1, 0, 0, 0, 0, 1, 0], [5, 1, 5, 2, 2, 3, 2, 0, 1, 0, 1, 0, 1, 1, 11, 1, 0, 0, 1, 1, 0], [5, 2, 5, 7, 1, 6, 2, 1, 0, 1, 1, 1, 1, 0, 1, 12, 0, 0, 0, 1, 0], [3, 3, 2, 6, 0, 5, 0, 0, 2, 0, 1, 0, 0, 0, 0, 0, 9, 0, 0, 1, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], [2, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 5, 0, 0], [5, 2, 4, 4, 0, 4, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 8, 0], [1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]], "either": [[51, 73, 64, 74, 67, 79, 60, 59, 63, 59, 56, 54, 59, 56, 57, 58, 57, 52, 54, 54, 51], [73, 38, 61, 70, 54, 70, 48, 43, 44, 49, 46, 43, 45, 44, 48, 48, 44, 39, 43, 44, 38], [64, 61, 35, 64, 54, 66, 47, 43, 46, 44, 41, 41, 43, 39, 41, 42, 42, 36, 40, 39, 36], [74, 70, 64, 42, 63, 57, 56, 52, 49, 52, 50, 48, 50, 51, 51, 47, 45, 43, 46, 46, 43], [67, 54, 54, 63, 29, 65, 43, 37, 40, 37, 36, 36, 37, 34, 38, 40, 38, 30, 34, 37, 30], [79, 70, 66, 57, 65, 44, 59, 52, 52, 56, 53, 48, 54, 51, 52, 50, 48, 45, 49, 48, 45], [60, 48, 47, 56, 43, 59, 22, 31, 33, 35, 31, 28, 32, 29, 31, 32, 31, 23, 27, 29, 23], [59, 43, 43, 52, 37, 52, 31, 12, 23, 25, 19, 22, 19, 21, 23, 23, 21, 13, 17, 19, 13], [63, 44, 46, 49, 40, 52, 33, 23, 12, 24, 19, 22, 23, 21, 22, 24, 19, 13, 17, 20, 13], [59, 49, 44, 52, 37, 56, 35, 25, 24, 13, 19, 23, 26, 21, 24, 24, 22, 13, 18, 21, 14], [56, 46, 41, 50, 36, 53, 31, 19, 19, 19, 9, 19, 21, 18, 19, 20, 17, 10, 14, 16, 10], [54, 43, 41, 48, 36, 48, 28, 22, 22, 23, 19, 10, 22, 17, 21, 21, 19, 11, 15, 18, 11], [59, 45, 43, 50, 37, 54, 32, 19, 23, 26, 21, 22, 13, 22, 23, 24, 22, 14, 16, 21, 14], [56, 44, 39, 51, 34, 51, 29, 21, 21, 21, 18, 17, 22, 9, 19, 21, 18, 10, 14, 16, 10], [57, 48, 41, 51, 38, 52, 31, 23, 22, 24, 19, 21, 23, 19, 11, 22, 20, 12, 15, 18, 12], [58, 48, 42, 47, 40, 50, 32, 23, 24, 24, 20, 21, 24, 21, 22, 12, 21, 13, 17, 19, 13], [57, 44, 42, 45, 38, 48, 31, 21, 19, 22, 17, 19, 22, 18, 20, 21, 9, 10, 14, 16, 10], [52, 39, 36, 43, 30, 45, 23, 13, 13, 13, 10, 11, 14, 10, 12, 13, 10, 1, 6, 9, 2], [54, 43, 40, 46, 34, 49, 27, 17, 17, 18, 14, 15, 16, 14, 15, 17, 14, 6, 5, 13, 6], [54, 44, 39, 46, 37, 48, 29, 19, 20, 21, 16, 18, 21, 16, 18, 19, 16, 9, 13, 8, 9], [51, 38, 36, 43, 30, 45, 23, 13, 13, 14, 10, 11, 14, 10, 12, 13, 10, 2, 6, 9, 1]]}, "allM": {"n": 257, "both": [[99, 30, 40, 33, 23, 23, 24, 13, 9, 16, 7, 14, 9, 9, 7, 6, 10, 7, 3, 6, 4], [30, 66, 28, 14, 22, 12, 20, 7, 6, 3, 7, 8, 6, 6, 5, 7, 7, 7, 1, 4, 1], [40, 28, 63, 17, 22, 15, 22, 6, 4, 10, 3, 13, 9, 8, 6, 6, 4, 2, 2, 4, 1], [33, 14, 17, 44, 14, 23, 3, 4, 3, 8, 3, 7, 5, 1, 5, 7, 6, 2, 1, 3, 0], [23, 22, 22, 14, 49, 8, 8, 4, 5, 9, 7, 11, 7, 3, 3, 1, 3, 1, 1, 1, 1], [23, 12, 15, 23, 8, 31, 7, 1, 2, 5, 1, 6, 5, 2, 2, 6, 7, 2, 1, 3, 0], [24, 20, 22, 3, 8, 7, 39, 7, 4, 4, 4, 8, 2, 4, 5, 2, 3, 2, 1, 2, 1], [13, 7, 6, 4, 4, 1, 7, 33, 1, 1, 2, 3, 1, 3, 3, 1, 1, 1, 0, 1, 1], [9, 6, 4, 3, 5, 2, 4, 1, 28, 2, 3, 3, 1, 2, 1, 1, 0, 6, 2, 1, 0], [16, 3, 10, 8, 9, 5, 4, 1, 2, 21, 2, 3, 1, 2, 0, 0, 1, 1, 1, 1, 0], [7, 7, 3, 3, 7, 1, 4, 2, 3, 2, 21, 3, 1, 1, 0, 0, 1, 2, 2, 0, 0], [14, 8, 13, 7, 11, 6, 8, 3, 3, 3, 3, 20, 3, 2, 3, 1, 0, 0, 0, 0, 0], [9, 6, 9, 5, 7, 5, 2, 1, 1, 1, 1, 3, 15, 0, 0, 2, 3, 1, 0, 0, 0], [9, 6, 8, 1, 3, 2, 4, 3, 2, 2, 1, 2, 0, 18, 1, 0, 1, 1, 1, 3, 1], [7, 5, 6, 5, 3, 2, 5, 3, 1, 0, 0, 3, 0, 1, 15, 1, 0, 0, 2, 2, 0], [6, 7, 6, 7, 1, 6, 2, 1, 1, 0, 0, 1, 2, 0, 1, 12, 1, 1, 1, 0, 0], [10, 7, 4, 6, 3, 7, 3, 1, 0, 1, 1, 0, 3, 1, 0, 1, 14, 1, 0, 1, 0], [7, 7, 2, 2, 1, 2, 2, 1, 6, 1, 2, 0, 1, 1, 0, 1, 1, 19, 0, 0, 0], [3, 1, 2, 1, 1, 1, 1, 0, 2, 1, 2, 0, 0, 1, 2, 1, 0, 0, 11, 1, 0], [6, 4, 4, 3, 1, 3, 2, 1, 1, 1, 0, 0, 0, 3, 2, 0, 1, 0, 1, 8, 0], [4, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 5]], "either": [[99, 135, 122, 110, 125, 107, 114, 119, 118, 104, 113, 105, 105, 108, 107, 105, 103, 111, 107, 101, 100], [135, 66, 101, 96, 93, 85, 85, 92, 88, 84, 80, 78, 75, 78, 76, 71, 73, 78, 76, 70, 70], [122, 101, 63, 90, 90, 79, 80, 90, 87, 74, 81, 70, 69, 73, 72, 69, 73, 80, 72, 67, 67], [110, 96, 90, 44, 79, 52, 80, 73, 69, 57, 62, 57, 54, 61, 54, 49, 52, 61, 54, 49, 49], [125, 93, 90, 79, 49, 72, 80, 78, 72, 61, 63, 58, 57, 64, 61, 60, 60, 67, 59, 56, 53], [107, 85, 79, 52, 72, 31, 63, 63, 57, 47, 51, 45, 41, 47, 44, 37, 38, 48, 41, 36, 36], [114, 85, 80, 80, 80, 63, 39, 65, 63, 56, 56, 51, 52, 53, 49, 49, 50, 56, 49, 45, 43], [119, 92, 90, 73, 78, 63, 65, 33, 60, 53, 52, 50, 47, 48, 45, 44, 46, 51, 44, 40, 37], [118, 88, 87, 69, 72, 57, 63, 60, 28, 47, 46, 45, 42, 44, 42, 39, 42, 41, 37, 35, 33], [104, 84, 74, 57, 61, 47, 56, 53, 47, 21, 40, 38, 35, 37, 36, 33, 34, 39, 31, 28, 26], [113, 80, 81, 62, 63, 51, 56, 52, 46, 40, 21, 38, 35, 38, 36, 33, 34, 38, 30, 29, 26], [105, 78, 70, 57, 58, 45, 51, 50, 45, 38, 38, 20, 32, 36, 32, 31, 34, 39, 31, 28, 25], [105, 75, 69, 54, 57, 41, 52, 47, 42, 35, 35, 32, 15, 33, 30, 25, 26, 33, 26, 23, 20], [108, 78, 73, 61, 64, 47, 53, 48, 44, 37, 38, 36, 33, 18, 32, 30, 31, 36, 28, 23, 22], [107, 76, 72, 54, 61, 44, 49, 45, 42, 36, 36, 32, 30, 32, 15, 26, 29, 34, 24, 21, 20], [105, 71, 69, 49, 60, 37, 49, 44, 39, 33, 33, 31, 25, 30, 26, 12, 25, 30, 22, 20, 17], [103, 73, 73, 52, 60, 38, 50, 46, 42, 34, 34, 34, 26, 31, 29, 25, 14, 32, 25, 21, 19], [111, 78, 80, 61, 67, 48, 56, 51, 41, 39, 38, 39, 33, 36, 34, 30, 32, 19, 30, 27, 24], [107, 76, 72, 54, 59, 41, 49, 44, 37, 31, 30, 31, 26, 28, 24, 22, 25, 30, 11, 18, 16], [101, 70, 67, 49, 56, 36, 45, 40, 35, 28, 29, 28, 23, 23, 21, 20, 21, 27, 18, 8, 13], [100, 70, 67, 49, 53, 36, 43, 37, 33, 26, 26, 25, 20, 22, 20, 17, 19, 24, 16, 13, 5]]}, "2000F": {"n": 51, "both": [[23, 8, 6, 6, 8, 6, 6, 2, 0, 3, 1, 5, 2, 1, 2, 2, 0, 0, 1, 2, 1], [8, 15, 2, 3, 7, 5, 6, 2, 1, 1, 0, 4, 1, 1, 1, 1, 1, 0, 0, 1, 1], [6, 2, 11, 1, 2, 3, 1, 1, 0, 2, 1, 3, 1, 0, 2, 3, 0, 0, 0, 0, 0], [6, 3, 1, 12, 2, 7, 1, 1, 1, 1, 0, 2, 1, 0, 0, 2, 1, 0, 1, 1, 0], [8, 7, 2, 2, 15, 2, 7, 2, 0, 3, 0, 2, 2, 0, 1, 0, 0, 0, 0, 0, 0], [6, 5, 3, 7, 2, 13, 2, 2, 1, 0, 0, 3, 0, 0, 0, 2, 1, 0, 0, 2, 0], [6, 6, 1, 1, 7, 2, 8, 1, 0, 0, 0, 3, 0, 1, 1, 0, 0, 0, 0, 0, 0], [2, 2, 1, 1, 2, 2, 1, 5, 0, 0, 1, 0, 2, 0, 0, 0, 0, 0, 0, 1, 0], [0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], [3, 1, 2, 1, 3, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [5, 4, 3, 2, 2, 3, 3, 0, 0, 0, 0, 6, 1, 1, 0, 1, 0, 0, 0, 0, 0], [2, 1, 1, 1, 2, 0, 0, 2, 0, 0, 0, 1, 5, 0, 0, 0, 0, 0, 1, 0, 0], [1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0], [2, 1, 2, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 3, 1, 0, 0, 0, 0, 0], [2, 1, 3, 2, 0, 2, 0, 0, 0, 0, 0, 1, 0, 0, 1, 6, 0, 0, 0, 1, 0], [0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 2, 0, 0], [2, 1, 0, 1, 0, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0], [1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]], "either": [[23, 30, 28, 29, 30, 30, 25, 26, 24, 26, 24, 24, 26, 23, 24, 27, 24, 23, 24, 23, 23], [30, 15, 24, 24, 23, 23, 17, 18, 15, 20, 17, 17, 19, 15, 17, 20, 15, 15, 17, 16, 15], [28, 24, 11, 22, 24, 21, 18, 15, 12, 15, 12, 14, 15, 12, 12, 14, 12, 11, 13, 13, 12], [29, 24, 22, 12, 25, 18, 19, 16, 12, 17, 14, 16, 16, 13, 15, 16, 12, 12, 13, 13, 13], [30, 23, 24, 25, 15, 26, 16, 18, 16, 18, 17, 19, 18, 16, 17, 21, 16, 15, 17, 17, 16], [30, 23, 21, 18, 26, 13, 19, 16, 13, 19, 15, 16, 18, 14, 16, 17, 13, 13, 15, 13, 14], [25, 17, 18, 19, 16, 19, 8, 12, 9, 14, 10, 11, 13, 8, 10, 14, 9, 8, 10, 10, 9], [26, 18, 15, 16, 18, 16, 12, 5, 6, 11, 6, 11, 8, 6, 8, 11, 6, 5, 7, 6, 6], [24, 15, 12, 12, 16, 13, 9, 6, 1, 7, 3, 7, 6, 2, 4, 7, 1, 1, 3, 3, 2], [26, 20, 15, 17, 18, 19, 14, 11, 7, 6, 8, 12, 11, 7, 9, 12, 7, 6, 8, 8, 7], [24, 17, 12, 14, 17, 15, 10, 6, 3, 8, 2, 8, 7, 3, 5, 8, 3, 2, 4, 4, 3], [24, 17, 14, 16, 19, 16, 11, 11, 7, 12, 8, 6, 10, 6, 9, 11, 7, 6, 8, 8, 7], [26, 19, 15, 16, 18, 18, 13, 8, 6, 11, 7, 10, 5, 6, 8, 11, 6, 5, 6, 7, 6], [23, 15, 12, 13, 16, 14, 8, 6, 2, 7, 3, 6, 6, 1, 4, 7, 2, 1, 3, 3, 2], [24, 17, 12, 15, 17, 16, 10, 8, 4, 9, 5, 9, 8, 4, 3, 8, 4, 3, 5, 5, 4], [27, 20, 14, 16, 21, 17, 14, 11, 7, 12, 8, 11, 11, 7, 8, 6, 7, 6, 8, 7, 7], [24, 15, 12, 12, 16, 13, 9, 6, 1, 7, 3, 7, 6, 2, 4, 7, 1, 1, 3, 3, 2], [23, 15, 11, 12, 15, 13, 8, 5, 1, 6, 2, 6, 5, 1, 3, 6, 1, 0, 2, 2, 1], [24, 17, 13, 13, 17, 15, 10, 7, 3, 8, 4, 8, 6, 3, 5, 8, 3, 2, 2, 4, 3], [23, 16, 13, 13, 17, 13, 10, 6, 3, 8, 4, 8, 7, 3, 5, 7, 3, 2, 4, 2, 3], [23, 15, 12, 13, 16, 14, 9, 6, 2, 7, 3, 7, 6, 2, 4, 7, 2, 1, 3, 3, 1]]}, "2000M": {"n": 80, "both": [[29, 9, 11, 11, 10, 9, 10, 0, 4, 5, 1, 4, 0, 0, 3, 3, 3, 2, 2, 0, 1], [9, 19, 7, 3, 7, 4, 9, 3, 3, 1, 0, 3, 1, 1, 1, 3, 2, 2, 0, 0, 1], [11, 7, 20, 5, 9, 5, 10, 0, 1, 3, 0, 5, 1, 0, 3, 3, 0, 0, 0, 0, 0], [11, 3, 5, 14, 4, 7, 0, 0, 1, 1, 0, 2, 0, 0, 2, 4, 1, 0, 1, 0, 0], [10, 7, 9, 4, 19, 2, 5, 2, 1, 3, 0, 5, 1, 1, 1, 1, 0, 0, 1, 0, 1], [9, 4, 5, 7, 2, 12, 4, 0, 1, 1, 0, 2, 0, 0, 2, 3, 2, 1, 1, 0, 0], [10, 9, 10, 0, 5, 4, 18, 2, 2, 2, 2, 3, 0, 1, 2, 0, 1, 2, 0, 0, 1], [0, 3, 0, 0, 2, 0, 2, 7, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1], [4, 3, 1, 1, 1, 1, 2, 0, 6, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0], [5, 1, 3, 1, 3, 1, 2, 0, 1, 8, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0], [1, 0, 0, 0, 0, 0, 2, 0, 0, 1, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [4, 3, 5, 2, 5, 2, 3, 0, 0, 1, 0, 7, 0, 0, 1, 0, 0, 0, 0, 0, 0], [0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0], [0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 3, 0, 0, 1, 0, 0, 0, 0], [3, 1, 3, 2, 1, 2, 2, 0, 1, 0, 0, 1, 0, 0, 7, 1, 0, 0, 2, 1, 0], [3, 3, 3, 4, 1, 3, 0, 0, 0, 0, 0, 0, 1, 0, 1, 5, 0, 0, 1, 0, 0], [3, 2, 0, 1, 0, 2, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 4, 0, 0, 0, 0], [2, 2, 0, 0, 0, 1, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0], [2, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 2, 1, 0, 0, 4, 1, 0], [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0], [1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2]], "either": [[29, 39, 38, 32, 38, 32, 37, 36, 31, 32, 31, 32, 30, 32, 33, 31, 30, 30, 31, 30, 30], [39, 19, 32, 30, 31, 27, 28, 23, 22, 26, 22, 23, 19, 21, 25, 21, 21, 20, 23, 20, 20], [38, 32, 20, 29, 30, 27, 28, 27, 25, 25, 23, 22, 20, 23, 24, 22, 24, 23, 24, 21, 22], [32, 30, 29, 14, 29, 19, 32, 21, 19, 21, 17, 19, 15, 17, 19, 15, 17, 17, 17, 15, 16], [38, 31, 30, 29, 19, 29, 32, 24, 24, 24, 22, 21, 19, 21, 25, 23, 23, 22, 22, 20, 20], [32, 27, 27, 19, 29, 12, 26, 19, 17, 19, 15, 17, 13, 15, 17, 14, 14, 14, 15, 13, 14], [37, 28, 28, 32, 32, 26, 18, 23, 22, 24, 19, 22, 19, 20, 23, 23, 21, 19, 22, 19, 19], [36, 23, 27, 21, 24, 19, 23, 7, 13, 15, 10, 14, 8, 9, 14, 12, 11, 10, 11, 8, 8], [31, 22, 25, 19, 24, 17, 22, 13, 6, 13, 9, 13, 7, 9, 12, 11, 10, 8, 9, 6, 8], [32, 26, 25, 21, 24, 19, 24, 15, 13, 8, 10, 14, 9, 11, 15, 13, 12, 11, 11, 9, 10], [31, 22, 23, 17, 22, 15, 19, 10, 9, 10, 3, 10, 4, 6, 10, 8, 7, 6, 7, 4, 5], [32, 23, 22, 19, 21, 17, 22, 14, 13, 14, 10, 7, 8, 10, 13, 12, 11, 10, 11, 8, 9], [30, 19, 20, 15, 19, 13, 19, 8, 7, 9, 4, 8, 1, 4, 8, 5, 5, 4, 5, 2, 3], [32, 21, 23, 17, 21, 15, 20, 9, 9, 11, 6, 10, 4, 3, 10, 8, 6, 6, 7, 4, 5], [33, 25, 24, 19, 25, 17, 23, 14, 12, 15, 10, 13, 8, 10, 7, 11, 11, 10, 9, 7, 9], [31, 21, 22, 15, 23, 14, 23, 12, 11, 13, 8, 12, 5, 8, 11, 5, 9, 8, 8, 6, 7], [30, 21, 24, 17, 23, 14, 21, 11, 10, 12, 7, 11, 5, 6, 11, 9, 4, 7, 8, 5, 6], [30, 20, 23, 17, 22, 14, 19, 10, 8, 11, 6, 10, 4, 6, 10, 8, 7, 3, 7, 4, 5], [31, 23, 24, 17, 22, 15, 22, 11, 9, 11, 7, 11, 5, 7, 9, 8, 8, 7, 4, 4, 6], [30, 20, 21, 15, 20, 13, 19, 8, 6, 9, 4, 8, 2, 4, 7, 6, 5, 4, 4, 1, 3], [30, 20, 22, 16, 20, 14, 19, 8, 8, 10, 5, 9, 3, 5, 9, 7, 6, 5, 6, 3, 2]]}, "2010F": {"n": 73, "both": [[24, 7, 16, 13, 5, 9, 7, 2, 0, 2, 3, 1, 3, 3, 3, 3, 3, 0, 1, 3, 0], [7, 20, 10, 7, 6, 6, 4, 4, 4, 1, 1, 1, 4, 2, 0, 1, 2, 0, 0, 1, 0], [16, 10, 22, 12, 6, 9, 9, 3, 1, 2, 2, 1, 4, 4, 3, 2, 2, 0, 0, 4, 0], [13, 7, 12, 27, 5, 19, 7, 1, 4, 2, 1, 2, 3, 0, 2, 5, 4, 0, 0, 3, 0], [5, 6, 6, 5, 10, 4, 1, 2, 1, 2, 2, 1, 2, 2, 1, 1, 0, 0, 0, 0, 0], [9, 6, 9, 19, 4, 26, 5, 2, 3, 1, 0, 3, 2, 2, 3, 4, 3, 0, 0, 2, 0], [7, 4, 9, 7, 1, 5, 11, 1, 0, 0, 0, 1, 2, 1, 1, 2, 0, 0, 0, 1, 0], [2, 4, 3, 1, 2, 2, 1, 6, 1, 0, 1, 0, 3, 0, 0, 1, 0, 0, 0, 0, 0], [0, 4, 1, 4, 1, 3, 0, 1, 10, 1, 2, 0, 2, 0, 1, 0, 1, 0, 0, 0, 0], [2, 1, 2, 2, 2, 1, 0, 0, 1, 7, 3, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0], [3, 1, 2, 1, 2, 0, 0, 1, 2, 3, 7, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0], [1, 1, 1, 2, 1, 3, 1, 0, 0, 0, 0, 3, 0, 1, 0, 0, 0, 0, 0, 0, 0], [3, 4, 4, 3, 2, 2, 2, 3, 2, 0, 1, 0, 5, 0, 0, 1, 0, 0, 0, 0, 0], [3, 2, 4, 0, 2, 2, 1, 0, 0, 1, 0, 1, 0, 6, 1, 0, 0, 0, 0, 1, 0], [3, 0, 3, 2, 1, 3, 1, 0, 1, 0, 1, 0, 0, 1, 7, 0, 0, 0, 0, 1, 0], [3, 1, 2, 5, 1, 4, 2, 1, 0, 1, 1, 0, 1, 0, 0, 6, 0, 0, 0, 0, 0], [3, 2, 2, 4, 0, 3, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 7, 0, 0, 1, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0], [3, 1, 4, 3, 0, 2, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 6, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], "either": [[24, 37, 30, 38, 29, 41, 28, 28, 34, 29, 28, 26, 26, 27, 28, 27, 28, 25, 25, 27, 24], [37, 20, 32, 40, 24, 40, 27, 22, 26, 26, 26, 22, 21, 24, 27, 25, 25, 21, 22, 25, 20], [30, 32, 22, 37, 26, 39, 24, 25, 31, 27, 27, 24, 23, 24, 26, 26, 27, 23, 24, 24, 22], [38, 40, 37, 27, 32, 34, 31, 32, 33, 32, 33, 28, 29, 33, 32, 28, 30, 28, 29, 30, 27], [29, 24, 26, 32, 10, 32, 20, 14, 19, 15, 15, 12, 13, 14, 16, 15, 17, 11, 12, 16, 10], [41, 40, 39, 34, 32, 26, 32, 30, 33, 32, 33, 26, 29, 30, 30, 28, 30, 27, 28, 30, 26], [28, 27, 24, 31, 20, 32, 11, 16, 21, 18, 18, 13, 14, 16, 17, 15, 18, 12, 13, 16, 11], [28, 22, 25, 32, 14, 30, 16, 6, 15, 13, 12, 9, 8, 12, 13, 11, 13, 7, 8, 12, 6], [34, 26, 31, 33, 19, 33, 21, 15, 10, 16, 15, 13, 13, 16, 16, 16, 16, 11, 12, 16, 10], [29, 26, 27, 32, 15, 32, 18, 13, 16, 7, 11, 10, 12, 12, 14, 12, 14, 7, 9, 13, 7], [28, 26, 27, 33, 15, 33, 18, 12, 15, 11, 7, 10, 11, 13, 13, 12, 13, 8, 9, 12, 7], [26, 22, 24, 28, 12, 26, 13, 9, 13, 10, 10, 3, 8, 8, 10, 9, 10, 4, 5, 9, 3], [26, 21, 23, 29, 13, 29, 14, 8, 13, 12, 11, 8, 5, 11, 12, 10, 12, 6, 7, 11, 5], [27, 24, 24, 33, 14, 30, 16, 12, 16, 12, 13, 8, 11, 6, 12, 12, 13, 7, 8, 11, 6], [28, 27, 26, 32, 16, 30, 17, 13, 16, 14, 13, 10, 12, 12, 7, 13, 14, 8, 9, 12, 7], [27, 25, 26, 28, 15, 28, 15, 11, 16, 12, 12, 9, 10, 12, 13, 6, 13, 7, 8, 12, 6], [28, 25, 27, 30, 17, 30, 18, 13, 16, 14, 13, 10, 12, 13, 14, 13, 7, 8, 9, 12, 7], [25, 21, 23, 28, 11, 27, 12, 7, 11, 7, 8, 4, 6, 7, 8, 7, 8, 1, 3, 7, 1], [25, 22, 24, 29, 12, 28, 13, 8, 12, 9, 9, 5, 7, 8, 9, 8, 9, 3, 2, 8, 2], [27, 25, 24, 30, 16, 30, 16, 12, 16, 13, 12, 9, 11, 11, 12, 12, 12, 7, 8, 6, 6], [24, 20, 22, 27, 10, 26, 11, 6, 10, 7, 7, 3, 5, 6, 7, 6, 7, 1, 2, 6, 0]]}, "2010M": {"n": 144, "both": [[54, 18, 23, 21, 12, 12, 7, 10, 5, 9, 6, 9, 7, 6, 4, 2, 5, 4, 1, 5, 2], [18, 39, 16, 11, 13, 7, 7, 3, 3, 2, 6, 3, 4, 4, 4, 4, 5, 5, 1, 3, 0], [23, 16, 33, 12, 11, 9, 6, 4, 3, 6, 2, 6, 5, 5, 3, 3, 4, 2, 2, 3, 0], [21, 11, 12, 29, 10, 15, 3, 4, 2, 7, 3, 5, 4, 1, 3, 3, 4, 1, 0, 3, 0], [12, 13, 11, 10, 26, 6, 1, 2, 2, 6, 5, 5, 6, 2, 2, 0, 3, 1, 0, 1, 0], [12, 7, 9, 15, 6, 17, 2, 1, 1, 4, 1, 4, 4, 1, 0, 3, 4, 0, 0, 2, 0], [7, 7, 6, 3, 1, 2, 11, 3, 1, 1, 0, 3, 0, 1, 3, 1, 2, 0, 1, 1, 0], [10, 3, 4, 4, 2, 1, 3, 21, 1, 1, 2, 2, 1, 2, 3, 1, 1, 1, 0, 1, 0], [5, 3, 3, 2, 2, 1, 1, 1, 20, 1, 2, 3, 1, 2, 0, 1, 0, 5, 1, 0, 0], [9, 2, 6, 7, 6, 4, 1, 1, 1, 11, 1, 2, 1, 1, 0, 0, 1, 1, 0, 1, 0], [6, 6, 2, 3, 5, 1, 0, 2, 2, 1, 14, 2, 1, 1, 0, 0, 1, 2, 2, 0, 0], [9, 3, 6, 5, 5, 4, 3, 2, 3, 2, 2, 11, 3, 2, 2, 1, 0, 0, 0, 0, 0], [7, 4, 5, 4, 6, 4, 0, 1, 1, 1, 1, 3, 10, 0, 0, 1, 2, 0, 0, 0, 0], [6, 4, 5, 1, 2, 1, 1, 2, 2, 1, 1, 2, 0, 12, 1, 0, 0, 1, 1, 2, 0], [4, 4, 3, 3, 2, 0, 3, 3, 0, 0, 0, 2, 0, 1, 8, 0, 0, 0, 0, 1, 0], [2, 4, 3, 3, 0, 3, 1, 1, 1, 0, 0, 1, 1, 0, 0, 6, 1, 1, 0, 0, 0], [5, 5, 4, 4, 3, 4, 2, 1, 0, 1, 1, 0, 2, 0, 0, 1, 8, 0, 0, 1, 0], [4, 5, 2, 1, 1, 0, 0, 1, 5, 1, 2, 0, 0, 1, 0, 1, 0, 14, 0, 0, 0], [1, 1, 2, 0, 0, 0, 1, 0, 1, 0, 2, 0, 0, 1, 0, 0, 0, 0, 6, 0, 0], [5, 3, 3, 3, 1, 2, 1, 1, 0, 1, 0, 0, 0, 2, 1, 0, 1, 0, 0, 6, 0], [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2]], "either": [[54, 75, 64, 62, 68, 59, 58, 65, 69, 56, 62, 56, 57, 60, 58, 58, 57, 64, 59, 55, 54], [75, 39, 56, 57, 52, 49, 43, 57, 56, 48, 47, 47, 45, 47, 43, 41, 42, 48, 44, 42, 41], [64, 56, 33, 50, 48, 41, 38, 50, 50, 38, 45, 38, 38, 40, 38, 36, 37, 45, 37, 36, 35], [62, 57, 50, 29, 45, 31, 37, 46, 47, 33, 40, 35, 35, 40, 34, 32, 33, 42, 35, 32, 31], [68, 52, 48, 45, 26, 37, 36, 45, 44, 31, 35, 32, 30, 36, 32, 32, 31, 39, 32, 31, 28], [59, 49, 41, 31, 37, 17, 26, 37, 36, 24, 30, 24, 23, 28, 25, 20, 21, 31, 23, 21, 19], [58, 43, 38, 37, 36, 26, 11, 29, 30, 21, 25, 19, 21, 22, 16, 16, 17, 25, 16, 16, 13], [65, 57, 50, 46, 45, 37, 29, 21, 40, 31, 33, 30, 30, 31, 26, 26, 28, 34, 27, 26, 23], [69, 56, 50, 47, 44, 36, 30, 40, 20, 30, 32, 28, 29, 30, 28, 25, 28, 29, 25, 26, 22], [56, 48, 38, 33, 31, 24, 21, 31, 30, 11, 24, 20, 20, 22, 19, 17, 18, 24, 17, 16, 13], [62, 47, 45, 40, 35, 30, 25, 33, 32, 24, 14, 23, 23, 25, 22, 20, 21, 26, 18, 20, 16], [56, 47, 38, 35, 32, 24, 19, 30, 28, 20, 23, 11, 18, 21, 17, 16, 19, 25, 17, 17, 13], [57, 45, 38, 35, 30, 23, 21, 30, 29, 20, 23, 18, 10, 22, 18, 15, 16, 24, 16, 16, 12], [60, 47, 40, 40, 36, 28, 22, 31, 30, 22, 25, 21, 22, 12, 19, 18, 20, 25, 17, 16, 14], [58, 43, 38, 34, 32, 25, 16, 26, 28, 19, 22, 17, 18, 19, 8, 14, 16, 22, 14, 13, 10], [58, 41, 36, 32, 32, 20, 16, 26, 25, 17, 20, 16, 15, 18, 14, 6, 13, 19, 12, 12, 8], [57, 42, 37, 33, 31, 21, 17, 28, 28, 18, 21, 19, 16, 20, 16, 13, 8, 22, 14, 13, 10], [64, 48, 45, 42, 39, 31, 25, 34, 29, 24, 26, 25, 24, 25, 22, 19, 22, 14, 20, 20, 16], [59, 44, 37, 35, 32, 23, 16, 27, 25, 17, 18, 17, 16, 17, 14, 12, 14, 20, 6, 12, 8], [55, 42, 36, 32, 31, 21, 16, 26, 26, 16, 20, 17, 16, 16, 13, 12, 13, 20, 12, 6, 8], [54, 41, 35, 31, 28, 19, 13, 23, 22, 13, 16, 13, 12, 14, 10, 8, 10, 16, 8, 8, 2]]}}};
+const L = D.labels, N = L.length;
+let period = "all", view = "F", selected = null;
+
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function hex(h){h=h.replace('#','');return [0,2,4].map(i=>parseInt(h.substr(i,2),16));}
+function mix(a,b,t){const A=hex(a),B=hex(b);return 'rgb('+A.map((x,i)=>Math.round(x+(B[i]-x)*t)).join(',')+')';}
+function jac(k,i,j){const e=D.data[k].either[i][j];return e?D.data[k].both[i][j]/e:null;}
+const fmt = x => x==null ? "n/a" : (x<0?"−":"") + Math.abs(x).toFixed(2).replace(/^0/,"");
+
+let maxJ = 0;
+for (const k in D.data) for (let i=1;i<N;i++) for (let j=0;j<i;j++){const v=jac(k,i,j); if(v!=null&&D.data[k].both[i][j]>=3&&v>maxJ) maxJ=v;}
+
+function value(i,j){
+  if (view==="D"){const f=jac(period+"F",i,j), m=jac(period+"M",i,j); return (f==null||m==null)?null:f-m;}
+  return jac(period+view,i,j);
+}
+function thin(i,j){
+  if (view==="D") return D.data[period+"F"].both[i][j]<3 && D.data[period+"M"].both[i][j]<3;
+  return D.data[period+view].both[i][j]<3;
+}
+let maxD = 0;
+function computeMaxD(){maxD=0;for(let i=1;i<N;i++)for(let j=0;j<i;j++){const f=jac(period+"F",i,j),m=jac(period+"M",i,j);if(f!=null&&m!=null&&(D.data[period+"F"].both[i][j]>=3||D.data[period+"M"].both[i][j]>=3))maxD=Math.max(maxD,Math.abs(f-m));}maxD=maxD||1;}
+function color(v){
+  const empty=css('--empty'), surf=css('--surface');
+  if (v==null) return empty;
+  if (view==="D"){ return v>=0 ? mix(surf,css('--female'),Math.min(1,v/maxD)) : mix(surf,css('--male'),Math.min(1,-v/maxD)); }
+  return mix(surf, view==="F"?css('--female'):css('--male'), Math.min(1,v/maxJ));
+}
+
+const svg = document.getElementById('heat');
+const cs = 30, left = 190, padTop = 10, bottom = 170;
+function draw(){
+  computeMaxD();
+  const W = left + (N-1)*cs + 10, H = padTop + (N-1)*cs + bottom;
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`); svg.setAttribute('width',W);
+  let s = '';
+  for (let i=1;i<N;i++){
+    const y = padTop+(i-1)*cs;
+    s += `<text x="${left-8}" y="${y+cs/2+4}" text-anchor="end" font-size="12">${L[i]}</text>`;
+    for (let j=0;j<i;j++){
+      const v = value(i,j), x = left + j*cs;
+      const sel = selected && selected[0]===i && selected[1]===j;
+      s += `<rect class="cell" tabindex="0" data-i="${i}" data-j="${j}" x="${x+1}" y="${y+1}" width="${cs-2}" height="${cs-2}" rx="2"
+        fill="${color(v)}" opacity="${thin(i,j)?0.35:1}" stroke="${sel?css('--focus'):'none'}" stroke-width="2"
+        aria-label="${L[i]} and ${L[j]}"></rect>`;
+    }
+  }
+  for (let j=0;j<N-1;j++){
+    const x = left + j*cs + cs/2, y = padTop + (N-1)*cs + 8;
+    s += `<text transform="translate(${x+4},${y}) rotate(-50)" text-anchor="end" font-size="12">${L[j]}</text>`;
+  }
+  svg.innerHTML = s;
+  svg.querySelectorAll('.cell').forEach(r=>{
+    const pick = ()=>{selected=[+r.dataset.i,+r.dataset.j]; detail(); draw();};
+    r.addEventListener('mouseenter',()=>{selected=[+r.dataset.i,+r.dataset.j]; detail(); highlight(r);});
+    r.addEventListener('click',pick);
+    r.addEventListener('focus',()=>{selected=[+r.dataset.i,+r.dataset.j]; detail(); highlight(r);});
+  });
+  legend(); topList(); detail();
+}
+function highlight(el){
+  svg.querySelectorAll('.cell').forEach(c=>c.setAttribute('stroke','none'));
+  el.setAttribute('stroke',css('--focus'));
+}
+function legend(){
+  const lg = document.getElementById('legend'), surf=css('--surface');
+  if (view==="D"){
+    lg.innerHTML = `<span>Male stronger</span><div class="bar" style="background:linear-gradient(90deg,${css('--male')},${surf},${css('--female')})"></div><span>Female stronger</span><span>(scale ±${fmt(maxD)})</span>`;
+  } else {
+    lg.innerHTML = `<span>0</span><div class="bar" style="background:linear-gradient(90deg,${surf},${view==='F'?css('--female'):css('--male')})"></div><span>${fmt(maxJ)} Jaccard</span>`;
+  }
+}
+function row(k,i,j){const b=D.data[k].both[i][j], e=D.data[k].either[i][j];return {b,e,v:jac(k,i,j)};}
+function detail(){
+  const el = document.getElementById('detail');
+  if (!selected){el.innerHTML='<h2>Selected pair</h2><p class="hint">Hover over or tap a cell.</p>';return;}
+  const [i,j] = selected, f=row(period+"F",i,j), m=row(period+"M",i,j);
+  const line=(lbl,r)=>`<div class="stat"><span>${lbl}</span><b>${fmt(r.v)} (${r.b} of ${r.e} books)</b></div>`;
+  let h = `<h2>Selected pair</h2><p class="pair">${L[i]} + ${L[j]}</p>`;
+  h += line('Female first authors',f) + line('Male first authors',m);
+  if (f.v!=null && m.v!=null) h += `<div class="stat"><span>Difference</span><b>${fmt(f.v-m.v)}</b></div>`;
+  el.innerHTML = h;
+}
+function topList(){
+  const minB = period==="all"?5:3, out=document.getElementById('top'), pairs=[];
+  for (let i=1;i<N;i++) for (let j=0;j<i;j++) pairs.push([i,j]);
+  const li = (p,v,extra)=>`<li>${L[p[0]]} + ${L[p[1]]} <span class="v">${fmt(v)}${extra||''}</span></li>`;
+  if (view==="D"){
+    const d = pairs.map(p=>{const f=row(period+"F",...p),m=row(period+"M",...p);return {p,f,m,v:(f.v!=null&&m.v!=null)?f.v-m.v:null};}).filter(x=>x.v!=null);
+    const fl = d.filter(x=>x.f.b>=minB).sort((a,b)=>b.v-a.v).slice(0,3);
+    const ml = d.filter(x=>x.m.b>=minB).sort((a,b)=>a.v-b.v).slice(0,3);
+    document.getElementById('toph').textContent='Largest gender differences';
+    out.innerHTML = `<p class="sub">Stronger for female first authors</p><ol>${fl.map(x=>li(x.p,x.v)).join('')}</ol>
+      <p class="sub">Stronger for male first authors</p><ol>${ml.map(x=>li(x.p,x.v)).join('')}</ol>
+      <p class="sub">Pairs with at least ${minB} books in the leading group.</p>`;
+  } else {
+    const k=period+view;
+    const t = pairs.map(p=>({p,...row(k,...p)})).filter(x=>x.b>=minB&&x.v!=null).sort((a,b)=>b.v-a.v).slice(0,5);
+    document.getElementById('toph').textContent='Strongest pairs';
+    out.innerHTML = `<ol>${t.map(x=>li(x.p,x.v,` (${x.b})`)).join('')}</ol><p class="sub">Jaccard (books with both frames); pairs with at least ${minB} books.</p>`;
+  }
+}
+function bind(id,set){
+  document.querySelectorAll('#'+id+' button').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('#'+id+' button').forEach(x=>x.setAttribute('aria-pressed','false'));
+    b.setAttribute('aria-pressed','true'); set(b.dataset.v); draw();
+  }));
+}
+bind('period',v=>period=v); bind('view',v=>view=v);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',draw);
+draw();
+</script>
+</body>
+</html>
